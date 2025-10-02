@@ -1,0 +1,8 @@
+TOKEN.txt
+alienfont.ttf
+*.json
+*.csv
+*.db
+image.png
+__pycache__/
+.venv/
