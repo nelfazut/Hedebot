@@ -11,80 +11,128 @@ import math
 class Classement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+    @staticmethod
+    def role_color(user : discord.Member):
+        """
+        Returns the hex value of the color related to the role
+        using hardcoded ids of the Hedera roles
+
+        Args:
+            userid: int
+        Returns:
+            str: the color related to the role id
+        """
+        roles_id = [u.name for u in user.roles]
+        if "roster 1" in roles_id:
+            couleur = "#0077d3"
+        elif "soldat.e" in roles_id:
+            couleur = "#ff8ff6"
+        elif "collaborateur.ice coalisé.e" in roles_id:
+            couleur = "#d60e0e"
+        elif "collaborateur.ice ordonné.e" in roles_id:
+            couleur = "#1cb81f"
+        else: #couleur jaune par défaut
+            couleur = "#ffb000" 
+        return couleur
+    
     @commands.command(name="pr")
     @commands.has_role("Soldat.e")
-    async def pr(self, ctx, user, nombre):
-        if user == "<@444044042716577803>" or user == "<@476812132852432936>":
-            return
-        user = discord.utils.get(ctx.guild.members, id = int(user[2:-1]))
-        roles = [y.name.lower() for y in user.roles]
-
-        with open("classement.csv", "r", newline = "") as classement:
-            membres = list(csv.reader(classement, quotechar="\n", delimiter=";"))
-        if user.id not in [int(element[3]) for element in membres]:
-            pseudo = unidecode.unidecode(user.display_name)
-            print(pseudo)
-            if "roster 1" in roles:
-                couleur = "#0077d3"
-            elif "soldat.e" in roles:
-                couleur = "#ff8ff6"
-            elif "collaborateur.ice coalisé.e" in roles:
-                couleur = "#d60e0e"
-            elif "collaborateur.ice ordonné.e" in roles:
-                couleur = "#1cb81f"
-            else:
-                couleur = "#ffb000"
-            membres.append([pseudo, couleur, nombre, user.id])
+    async def pr(self, ctx: discord.ext.commands.Context, user: discord.Member, number: int):
+        """This method is only meant to be used from Discord. It checks if everything is alright 
+        in the command for its execution then adds a certain number of points to the ranking of the pinged user
+        Args:
+            ctx: discord.ext.commands.Contex
+            user: discord.Member
+            number: int
+        """
+        if user == None:
+            ctx.send("l'utilisateur n'est pas présent sur le serveur")
         else:
-            for i,k in enumerate(membres):
-                if int(k[3]) == user.id:
-                    if "roster 1" in roles:
-                        membres[i][1] = "#0077d3"
-                    elif "soldat.e" in roles:
-                        membres[i][1] = "#ff8ff6"
-                    elif "collaborateur.ice coalisé.e" in roles:
-                        membres[i][1] = "#d60e0e"
-                    elif "collaborateur.ice ordonné.e" in roles:
-                        membres[i][1] = "#1cb81f"
-                    else:
-                        membres[i][1] = "#ffb000"
-                    membres[i][2] = str(int(membres[i][2])+int(nombre))
-        membres.sort(reverse = True, key = lambda x : int(x[2]))
-        await asyncio.sleep(1)
+            await ctx.message.add_reaction("👍")
+            guild = ctx.guild
+            await self.add_ranking(user, number) # A faire
+            await self.update_images(guild)
+    @staticmethod
+    def load_classement():
+        """This function loads the csv classement.csv and turns it into a list of list of str.
+        Each line follow this pattern : [display_name,display_color(hex),pr_number,user_id]
+            Returns:
+                str: the list of members as a list of lists of str 
+        """
+        with open("classement.csv", "r", newline = "") as classement:
+            membres = list(csv.reader(classement, delimiter=";")) #a passer en sql apres
+        return membres
+    @staticmethod
+    def save_classement(liste_classement: list):
+        """this function saves the given list in the classment.csv file
+            Args:
+                liste_classement: list"""
         with open("classement.csv", "w", newline="") as classement:
             writer = csv.writer(classement, delimiter=";")
-            writer.writerows(membres)
-        await self.update(ctx)
+            writer.writerows(liste_classement)
 
-    async def update(self, ctx):
-        with open("classement.csv", "r", newline = "") as classement:
-            membres = list(csv.reader(classement, quotechar="\n", delimiter=";"))
-        with open("classement.json", "r", encoding = "utf8") as file:
+    async def add_ranking(self, user: discord.Member, number: int):
+        """
+        This method is used to add a certain number of pr to the guild classment
+        Args:
+            ctx: discord.ext.commands.Context
+            user: str
+            number: str
+        """
+        if user.id == 444044042716577803 or user.id == 476812132852432936: #prevents admins to be added to the ranking system (hardcoded)
+            return
+        membres = self.load_classement()
+
+        for i, membre in enumerate(membres):
+            if int(membre[3]) == user.id:
+                pseudo = membre[0]  
+                couleur = self.role_color(user)
+                score = int(membre[2]) + number
+                membres[i] = [pseudo, couleur, str(score), user.id]
+                break
+        else:
+            pseudo = unidecode.unidecode(user.display_name)
+            couleur = self.role_color(user)
+            membres.append([pseudo, couleur, str(number), user.id])
+        self.save_classement(membres)
+
+    async def update_images(self, guild):
+        """This option updates the ranking display in the dedicated discord channel"""
+        membres = self.load_classement()
+
+        with open("classement.json", "r", encoding = "utf8") as file: #Loads the json containing previously sent messages [guild_id[message1_id,message2_id]] A passer en dict
             liste_json = json.load(file)
-            channel = discord.utils.get(ctx.guild.channels, id = liste_json[0])
-            id_messages = liste_json[1]
-            messages = [await channel.fetch_message(k) for k in id_messages]
-        for i in messages:
-            await i.delete()
+        # At first we delete the messages
+        channel = guild.get_channel(liste_json[0])
+        id_messages = liste_json[1]
+        for i in id_messages:
+            await (await channel.fetch_message(i)).delete()
+        
+
+        # Then we send new messages 
         liste_messages = []
-        for i,k in enumerate(self.decouper_liste(membres, 12)):
+        for i,k in enumerate(self.decouper_liste(membres, 12)): #We cut the list so the image isn't too large for a good display in a discord channel
             image = await generate_scoreboard(k,i)
             image.save("image.png")
             with open('image.png', 'rb') as f:
                 image = discord.File(f)
             message = await channel.send(file=image)
             liste_messages.append(message.id)
-            with open("classement.json", "w", encoding = "utf8") as f:
-                json.dump([channel.id,liste_messages],f)
+        with open("classement.json", "w", encoding = "utf8") as f:
+            json.dump([channel.id,liste_messages],f)
 
 
     def decouper_liste(self, liste, n):
+        """This function cut a list in sublists with len n"""
         result = []
         for i in range(0, len(liste), n):
             result.append(liste[i:i+n])
         return result    
+
+
+
     @commands.command(name="nomclassement")
-    async def nomblassement(self, ctx, *, phrase):
+    async def nomblcassement(self, ctx, *, phrase):
         with open("classement.csv", "r", newline = "") as f:
             membres = list(csv.reader(f, quotechar="\n", delimiter=";"))
         for i,k in enumerate(membres):
@@ -162,7 +210,7 @@ class Classement(commands.Cog):
                         json.dump(liste_paris, f)
                     await ctx.send("pari accepté.")
                     await interaction.response.edit_message(view = View())
-                    await self.pr(ctx, f"<@{ctx.author.id}>", str(-int(number)))
+                    await self.pr(ctx, ctx.author, str(-int(number)))
                     asyncio.sleep(1)
                     self.pr(ctx, user, str(0-int(number)))
 
