@@ -1,0 +1,5 @@
+discord
+numpy
+pillow
+sqlmodel
+unidecode
