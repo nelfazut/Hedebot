@@ -49,11 +49,14 @@ def get_user(discord_id: int):
         for user in results:
             return user
 
-def get_all() => list[User]:
+
+def get_all() -> list[User]:
     engine = create_engine(sqlite_url, echo=False)
     users = []
     with Session(engine) as session:
-        statement = select(User).where(User.total_pr != 0).order_by(User.total_pr.desc())
+        statement = (
+            select(User).where(User.total_pr != 0).order_by(User.total_pr.desc())
+        )
         results = session.exec(statement)
         for user in results:
             users.append(user)
