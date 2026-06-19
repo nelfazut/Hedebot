@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from data.managers.leaderboard import LeaderboardManager
 TOKEN = open("TOKEN.txt").read()
 print((TOKEN))
 class ExampleBot(commands.Bot):
@@ -12,6 +13,7 @@ class ExampleBot(commands.Bot):
         )
     
     async def setup_hook(self): # on crée une méthode pour charger les extensions
+        self.leaderboard_mgr = LeaderboardManager("classement.csv")
         await self.load_extension("classement")
         await self.load_extension("utilitaires")
         await self.load_extension("des")

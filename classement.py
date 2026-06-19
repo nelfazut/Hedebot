@@ -8,119 +8,75 @@ import asyncio
 from discord.ui import Button, View
 import time
 import math
+from io import BytesIO
+from utils.helpers import get_user_color, decouper_liste
 class Classement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
     @commands.command(name="pr")
     @commands.has_role("Soldat.e")
-    async def pr(self, ctx, user, nombre):
-        if user == "<@444044042716577803>" or user == "<@476812132852432936>":
+    async def pr(self, ctx, user : discord.Member , nombre):
+
+        if user.id == 444044042716577803 or user.id == 476812132852432936:
             return
-        user = discord.utils.get(ctx.guild.members, id = int(user[2:-1]))
-        roles = [y.name.lower() for y in user.roles]
+        
+        color = get_user_color(user.roles)
 
-        with open("classement.csv", "r", newline = "") as classement:
-            membres = list(csv.reader(classement, quotechar="\n", delimiter=";"))
-        if user.id not in [int(element[3]) for element in membres]:
-            pseudo = unidecode.unidecode(user.display_name)
-            print(pseudo)
-            if "roster 1" in roles:
-                couleur = "#0077d3"
-            elif "soldat.e" in roles:
-                couleur = "#ff8ff6"
-            elif "collaborateur.ice coalisé.e" in roles:
-                couleur = "#d60e0e"
-            elif "collaborateur.ice ordonné.e" in roles:
-                couleur = "#1cb81f"
-            else:
-                couleur = "#ffb000"
-            membres.append([pseudo, couleur, nombre, user.id])
-        else:
-            for i,k in enumerate(membres):
-                if int(k[3]) == user.id:
-                    if "roster 1" in roles:
-                        membres[i][1] = "#0077d3"
-                    elif "soldat.e" in roles:
-                        membres[i][1] = "#ff8ff6"
-                    elif "collaborateur.ice coalisé.e" in roles:
-                        membres[i][1] = "#d60e0e"
-                    elif "collaborateur.ice ordonné.e" in roles:
-                        membres[i][1] = "#1cb81f"
-                    else:
-                        membres[i][1] = "#ffb000"
-                    membres[i][2] = str(int(membres[i][2])+int(nombre))
-        membres.sort(reverse = True, key = lambda x : int(x[2]))
-        await asyncio.sleep(1)
-        with open("classement.csv", "w", newline="") as classement:
-            writer = csv.writer(classement, delimiter=";")
-            writer.writerows(membres)
-        await self.update(ctx)
+        self.bot.leaderboard_mgr.add_pr(user.id, user.nick, color, nombre)
 
-    async def update(self, ctx):
-        with open("classement.csv", "r", newline = "") as classement:
-            membres = list(csv.reader(classement, quotechar="\n", delimiter=";"))
-        with open("classement.json", "r", encoding = "utf8") as file:
-            liste_json = json.load(file)
-            channel = discord.utils.get(ctx.guild.channels, id = liste_json[0])
-            id_messages = liste_json[1]
-            messages = [await channel.fetch_message(k) for k in id_messages]
+        self.update_classement()
+
+    async def update_classement(self):
+        """Met a jour les images du classement sur discord en se basant sur l'état en mémoire"""
+        channel = self.bot.get_channel(self.bot.leaderboard_mgr.get_ui_channel)
+
+        messages = [await channel.fetch_message(m) for m in self.bot.leaderboard_mgr.get_ui_messages()]
+        
         for i in messages:
             await i.delete()
-        liste_messages = []
-        for i,k in enumerate(self.decouper_liste(membres, 12)):
+        
+        new_messages = []
+        for i,k in enumerate(decouper_liste(membres, 12)):
             image = await generate_scoreboard(k,i)
-            image.save("image.png")
-            with open('image.png', 'rb') as f:
-                image = discord.File(f)
-            message = await channel.send(file=image)
-            liste_messages.append(message.id)
-            with open("classement.json", "w", encoding = "utf8") as f:
-                json.dump([channel.id,liste_messages],f)
 
+            with BytesIO() as f:
+                image.save(f, format="PNG")
+                f.seek(0)
+                discord_file = discord.File(f)
 
-    def decouper_liste(self, liste, n):
-        result = []
-        for i in range(0, len(liste), n):
-            result.append(liste[i:i+n])
-        return result    
+            message = await channel.send(file=discord_file)
+
+            new_messages.append(message.id)
+
+            self.bot.leaderboard_mgr.overwrite_ui_messages(new_messages)
+
     @commands.command(name="nomclassement")
-    async def nomblassement(self, ctx, *, phrase):
-        with open("classement.csv", "r", newline = "") as f:
-            membres = list(csv.reader(f, quotechar="\n", delimiter=";"))
-        for i,k in enumerate(membres):
-            if k[3] == str(ctx.author.id):
-                membres[i][0] = phrase
-        with open("classement.csv", "w", newline="") as f:
-            writer = csv.writer(f, delimiter=";")
-            writer.writerows(membres)
-        with open("classement.json", "r", encoding = "utf8") as file:
-            liste_json = json.load(file)
-            channel = discord.utils.get(ctx.guild.channels, id = liste_json[0])
-            id_messages = liste_json[1]
-            messages = [await channel.fetch_message(k) for k in id_messages]
-        for i in messages:
-            await i.delete()
-        liste_messages = []
-        for i,k in enumerate(self.decouper_liste(membres, 12)):
-            image = await generate_scoreboard(k,i)
-            image.save("image.png")
-            with open('image.png', 'rb') as f:
-                image = discord.File(f)
-            message = await channel.send(file=image)
-            liste_messages.append(message.id)
-            with open("classement.json", "w", encoding = "utf8") as f:
-                json.dump([channel.id,liste_messages],f)
+    async def nomclassement(self, ctx, *, phrase):
+        """Change le nom de l'utilisateur au classement"""
+        self.fnomclassement(ctx.author, phrase)
+
+    @commands.command(name="fnomclassement")
+    @commands.has_role("Soldat.e")
+    async def fnomclassement(self, ctx, user, *, phrase):
+        """force le changement de nom de l'utilisateur ciblé au classement"""
+        if ("\n" in phrase or ";" in phrase):
+            ctx.send("nom invalide")
+            return
+        if self.bot.leaderboard_mgr.rename_player(user.id, phrase):
+            self.update_classement()
+            return
+        if user.id == ctx.author.id:
+            ctx.send("Vous n'appartenez pas au classement")
+        else:
+            ctx.send("Il n'appartient pas au classement...")
+
     @commands.command(name="remove")
-    async def remove(self, ctx, ping):
-        with open("classement.csv", "r", newline="") as f:
-            membres = list(csv.reader(f, quotechar="\n", delimiter=";"))
-        for i,k in enumerate(membres):
-            if k[3] == ping[2:-1]:
-                membres.pop(i)
-        with open("classement.csv", "w", newline="") as f:
-            writer = csv.writer(f, delimiter=";")
-            writer.writerows(membres)
-        await self.update(ctx)
+    async def remove(self, ctx, user):
+        """retire un utilisateur du classement"""
+        self.bot.leaderboard_mgr.remove_player(user.id)
+        self.update_classement
+
+
     @commands.command(name="pari")
     async def pari(self,ctx, user = None, number = None, *, objet = None):
         with open("paris.json", "r", encoding="utf8") as f:
@@ -225,12 +181,9 @@ class Classement(commands.Cog):
         await ctx.send(f"<@{i[1]}>",embed = embed, view = view)
     @commands.Cog.listener()
     async def on_message(self, ctx):
-        if str(ctx.channel.id) == "1206703716481245255":
+        if ctx.channel.id == 1206703716481245255:
             jouractuel = int((time.time()+7200)/86400)
-
-            with open("streaks.json", "r", encoding="utf8") as f:
-                streaks = json.load(f)
-            streaksavant = streaks.copy()
+            streak_pr = [[30,5],[50,15],[100,50],[200,115], [365,220], [500, 320]]
             if (str(ctx.author.id) in streaks):
                 if streaks[(str(ctx.author.id))][0] == jouractuel-1:
                     streaks[(str(ctx.author.id))][0] = jouractuel
