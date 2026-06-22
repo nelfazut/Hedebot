@@ -9,7 +9,7 @@ class LeaderboardManager:
     def __init__(self, csv_path="classement.csv", json_path = "classement.json", streak_path="streaks.json"):
         self.csv_path = csv_path = json_path
         self.json_path = json_path
-        self.streak_path = streak_path      
+        self.streak_path = streak_path
     #Fichier csv classement
 
     def _read_data(self):
@@ -116,7 +116,6 @@ class LeaderboardManager:
             json.dump([channel_id, message_ids], f)
     def overwrite_ui_messages(self, messages_id):
         self.save_ui_state(self.get_ui_channel(), messages_id)
-    
 
     #streaks
     def _get_streak_data(self) -> dict:
@@ -125,49 +124,37 @@ class LeaderboardManager:
             data = json.load(f)
         return data
 
-
     def _write_streak_data(self, data):
         """Ecrit dans le fichier streaks"""
         with open(self.streak_path, "w", encoding="utf8") as f:
             json.dump(data, f)
 
-    
     def refresh_user_streak(self, user_id : int) -> None:
+        data = self._get_streak_data()
+        data[str(user_id)][0] = get_current_day()
         if not (str(ctx.author.id) in data) or (data[str(ctx.author.id)][0] != get_current_day() and data[str(ctx.author.id)][0] != get_current_day()-1):
-            self.reset_streak(user_id)
+            data[str(user_id)] = [get_current_day(),0]
         else:
-            data = _get_streak_data()
             data[str(user_id)][0] = get_current_day()
-            _write_streak_data(data)
+        _write_streak_data(data)
 
-    
     def get_user_streak(self, user_id : int) -> None:
         """Renvoie la valeur de la streak de l'utilisateur"""
-        data = self._get_streak_data()
-        if not (str(ctx.author.id) in data) or (data[str(ctx.author.id)][0] != get_current_day() and data[str(ctx.author.id)][0] != get_current_day()-1):
-            self.reset_streak(user_id)
+        self.refresh_user_streak(user_id)
         return self._get_streak_data()[str(user_id)][1]
 
-    def get_user_last_day(self, user_id : int) -> None:
-        """Renvoie le dernier jour ou l'utilisateur a joué"""
-        return self._get_streak_data()[str(user_id)][0]
-
-    def reset_streak(self, user_id : int) -> None:
-        """Reinitialise la streak de l'utilisateur"""
-        data = self._get_streak_data()
-        data[str(user_id)] = [get_current_day(), 0]
-    
     def increase_streak(self, user_id : int) -> None:
         """Actualise la streak"""
         self.refresh_user_streak(user_id)
         data = self._get_streak_data()
-        data 
-        
-
-    
+        data[str(user_id)][1] += 1
 
 
-        
+
+
+
+
+
 # ---------------------------------------------------------
 # Test block: This only runs if you run this file directly
 # e.g., `python data/managers/leaderboard.py`

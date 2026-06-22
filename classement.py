@@ -13,10 +13,8 @@ from utils.helpers import get_user_color, decouper_liste
 class Classement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-    @commands.command(name="pr")
-    @commands.has_role("Soldat.e")
-    async def pr(self, ctx, user : discord.Member , nombre):
 
+    async def ajouter_pr(self, user: discord.Member, nombre: int):
         if user.id == 444044042716577803 or user.id == 476812132852432936:
             return
         
@@ -25,6 +23,12 @@ class Classement(commands.Cog):
         self.bot.leaderboard_mgr.add_pr(user.id, user.nick, color, nombre)
 
         self.update_classement()
+
+
+    @commands.command(name="pr")
+    @commands.has_role("Soldat.e")
+    async def pr(self, ctx, user : discord.Member , nombre):
+        self.ajouter_pr(user, nombre)
 
     async def update_classement(self):
         """Met a jour les images du classement sur discord en se basant sur l'état en mémoire"""
@@ -182,30 +186,18 @@ class Classement(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, ctx):
         if ctx.channel.id == 1206703716481245255:
-            jouractuel = int((time.time()+7200)/86400)
-            streak_pr = [[30,5],[50,15],[100,50],[200,115], [365,220], [500, 320]]
-            if (str(ctx.author.id) in streaks):
-                if streaks[(str(ctx.author.id))][0] == jouractuel-1:
-                    streaks[(str(ctx.author.id))][0] = jouractuel
-                    streaks[(str(ctx.author.id))][1] += 1
-                    if streaks[str(ctx.author.id)][1] in [i[0] for i in [[30,5],[50,15],[100,50],[200,115], [365,220], [500, 320]]]:
-                        etape = [i for i in [[30,5],[50,15],[100,50],[200,115], [365,220], [500, 320]] if i[0] == streaks[str(ctx.author.id)][1]][0]
-                        await ctx.channel.send(f"<@{ctx.author.id}>, pour avoir joué {etape[0]} jours, voici {etape[1]} PRs, fais en bon usage!")
-                        await self.pr(ctx, f"<@{ctx.author.id}>", etape[1])
-                elif streaks[(str(ctx.author.id))][0] != jouractuel:
-                    streaks[(str(ctx.author.id))][0] = jouractuel
-                    streaks[(str(ctx.author.id))][1] = 1 
-            else:
-                streaks[str(ctx.author.id)] = [jouractuel, 1]
-            with open("streaks.json", "w", encoding= "utf8") as f:
-                json.dump(streaks, f)
+            streak_pr = [(30,5),(50,15),(100,50),(200,115), (365,220), (500, 320), (1000,1100), (2000,2300)]
+            user_id = ctx.author.id
+            self.bot.leaderboard_mgr.increase_streak(user_id)
+            for a in data:
+                if a[0] == self.bot.leaderboard_mgr.get_user_streak(user_id):
+                    self.ajouter_pr(ctx.author, a[1])
+
     @commands.command(name="streak")
-    async def streak(self, ctx):
-        with open("streaks.json", "r", encoding="utf8") as f:
-            streaks = json.load(f)
-        if str(ctx.author.id) in streaks:
-            await ctx.send(f" vous avez joué pendant {streaks[str(ctx.author.id)][1]} jours consecutifs")
+    async def streak(self, ctx, user : discord.Member = None):
+        if user == None:
+            ctx.send(f"Vous avez joué {self.bot.leaderboard_mgr.get_user_streak(ctx.author.id)} jours")
         else:
-            await ctx.send("vous n'avez pas encore participé ou perdu votre streak, triste...")
+            ctx.send(f"{user.nick} a joué {self.bot.leaderboard_mgr.get_user_streak(user.id)} jours")
 async def setup(bot):
     await bot.add_cog(Classement(bot))
