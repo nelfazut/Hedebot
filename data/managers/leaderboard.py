@@ -1,5 +1,6 @@
 import csv
 import unidecode
+import json
 from utils.helpers import get_current_day
 class LeaderboardManager:
     """
@@ -7,7 +8,7 @@ class LeaderboardManager:
     This hides all the messy file reading logic from the Discord Cogs.
     """
     def __init__(self, csv_path="classement.csv", json_path = "classement.json", streak_path="streaks.json"):
-        self.csv_path = csv_path = json_path
+        self.csv_path = csv_path
         self.json_path = json_path
         self.streak_path = streak_path
     #Fichier csv classement
@@ -94,13 +95,15 @@ class LeaderboardManager:
 
 
     #images classement et messages discord
-    def get_ui_state(self) -> (int,list[int]):
+    def get_ui_state(self) -> tuple[int, list[int]]:
         """Récupère l'ID du salon et les IDs des messages du classement."""
         try:
             with open(self.json_path, "r", encoding="utf8") as f:
                 data = json.load(f)
-                return data[0], data[1] # (channel_id, liste_des_messages)
-        except (FileNotFoundError, IndexError):
+                if isinstance(data, list) and len(data) >= 2:
+                    return data[0], data[1]
+                return None, []
+        except (FileNotFoundError, IndexError, KeyError, json.JSONDecodeError):
             return None, []
     def get_ui_channel(self) -> int: 
         """recupere l'id du salon du classement"""
@@ -129,26 +132,30 @@ class LeaderboardManager:
         with open(self.streak_path, "w", encoding="utf8") as f:
             json.dump(data, f)
 
-    def refresh_user_streak(self, user_id : int) -> None:
+    def trigger_streak(self, user_id: int) -> bool:
+        """Met à jour la streak et renvoie True si elle vient d'augmenter."""
         data = self._get_streak_data()
-        data[str(user_id)][0] = get_current_day()
-        if not (str(ctx.author.id) in data) or (data[str(ctx.author.id)][0] != get_current_day() and data[str(ctx.author.id)][0] != get_current_day()-1):
-            data[str(user_id)] = [get_current_day(),0]
-        else:
-            data[str(user_id)][0] = get_current_day()
-        _write_streak_data(data)
-
-    def get_user_streak(self, user_id : int) -> None:
-        """Renvoie la valeur de la streak de l'utilisateur"""
-        self.refresh_user_streak(user_id)
-        return self._get_streak_data()[str(user_id)][1]
-
-    def increase_streak(self, user_id : int) -> None:
-        """Actualise la streak"""
-        self.refresh_user_streak(user_id)
+        user_str, current_day = str(user_id), get_current_day()
+        
+        last_day, streak = data.get(user_str, [0, 0])
+        
+        # Si c'est aujourd'hui, on coupe court et on renvoie False
+        if last_day == current_day:
+            return False 
+            
+        data[user_str] = [current_day, streak + 1 if last_day == current_day - 1 else 1]
+        self._write_streak_data(data)
+        
+        # La streak a été modifiée avec succès, on renvoie True
+        return True
+    
+    def get_user_streak(self, user_id: int) -> int:
+        """Lit la streak actuelle (pour la commande !streak) sans tricher."""
         data = self._get_streak_data()
-        data[str(user_id)][1] += 1
-
+        last_day, streak = data.get(str(user_id), [0, 0])
+        
+        # Si le joueur n'a pas joué hier ou aujourd'hui, sa streak est à 0 visuellement
+        return streak if last_day >= get_current_day() - 1 else 0
 
 
 

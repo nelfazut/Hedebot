@@ -22,38 +22,47 @@ class Classement(commands.Cog):
 
         self.bot.leaderboard_mgr.add_pr(user.id, user.nick, color, nombre)
 
-        self.update_classement()
+        await self.update_classement()
 
 
     @commands.command(name="pr")
     @commands.has_role("Soldat.e")
-    async def pr(self, ctx, user : discord.Member , nombre):
-        self.ajouter_pr(user, nombre)
+    async def pr(self, ctx, user : discord.Member , nombre : int):
+        await self.ajouter_pr(user, nombre)
 
     async def update_classement(self):
-        """Met a jour les images du classement sur discord en se basant sur l'état en mémoire"""
-        channel = self.bot.get_channel(self.bot.leaderboard_mgr.get_ui_channel)
-
-        messages = [await channel.fetch_message(m) for m in self.bot.leaderboard_mgr.get_ui_messages()]
+        """Met à jour les images du classement sur discord en se basant sur l'état en mémoire"""
         
-        for i in messages:
-            await i.delete()
+        channel_id = self.bot.leaderboard_mgr.get_ui_channel()
+        
+        if not channel_id:
+            channel_id = 620004242966577208
+            
+        channel = self.bot.get_channel(channel_id)
+        if not channel:
+            return # Sécurité au cas où le bot n'a pas accès au salon
+
+        for m_id in self.bot.leaderboard_mgr.get_ui_messages():
+            try:
+                msg = await channel.fetch_message(m_id)
+                await msg.delete()
+            except discord.NotFound:
+                pass 
+        membres = self.bot.leaderboard_mgr.get_all_players()
         
         new_messages = []
-        for i,k in enumerate(decouper_liste(membres, 12)):
-            image = await generate_scoreboard(k,i)
+        for i, k in enumerate(decouper_liste(membres, 12)):
+            image = await generate_scoreboard(k, i)
 
             with BytesIO() as f:
                 image.save(f, format="PNG")
                 f.seek(0)
-                discord_file = discord.File(f)
+                discord_file = discord.File(f, filename="classement.png")
 
             message = await channel.send(file=discord_file)
-
             new_messages.append(message.id)
 
-            self.bot.leaderboard_mgr.overwrite_ui_messages(new_messages)
-
+        self.bot.leaderboard_mgr.save_ui_state(channel_id, new_messages)
     @commands.command(name="nomclassement")
     async def nomclassement(self, ctx, *, phrase):
         """Change le nom de l'utilisateur au classement"""
@@ -179,25 +188,26 @@ class Classement(commands.Cog):
             else:
                 await interaction.response.send_message("nan mais oh depuis quand c'est toi qui choisis?", ephemeral = True)
         yes.callback = yes_callback
-        no.callback = no_callback
-        view.add_item(yes)
-        view.add_item(no)
-        await ctx.send(f"<@{i[1]}>",embed = embed, view = view)
-    @commands.Cog.listener()
-    async def on_message(self, ctx):
-        if ctx.channel.id == 1206703716481245255:
-            streak_pr = [(30,5),(50,15),(100,50),(200,115), (365,220), (500, 320), (1000,1100), (2000,2300)]
-            user_id = ctx.author.id
-            self.bot.leaderboard_mgr.increase_streak(user_id)
-            for a in data:
-                if a[0] == self.bot.leaderboard_mgr.get_user_streak(user_id):
-                    self.ajouter_pr(ctx.author, a[1])
-
+        no.callback = no_caclassement.py
     @commands.command(name="streak")
     async def streak(self, ctx, user : discord.Member = None):
         if user == None:
-            ctx.send(f"Vous avez joué {self.bot.leaderboard_mgr.get_user_streak(ctx.author.id)} jours")
+            await ctx.send(f"Vous avez joué {self.bot.leaderboard_mgr.get_user_streak(ctx.author.id)} jours")
         else:
-            ctx.send(f"{user.nick} a joué {self.bot.leaderboard_mgr.get_user_streak(user.id)} jours")
+            await ctx.send(f"{user.nick} a joué {self.bot.leaderboard_mgr.get_user_streak(user.id)} jours")
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.channel.id == 1206703716481245255:
+            streak_updated = self.bot.leaderboard_mgr.trigger_streak(message.author.id)
+            if streak_updated:
+                streak_pr = [(30,5), (50,15), (100,50), (200,115), (365,220), (500,320), (1000,1100), (2000,2300)]
+                current_streak = self.bot.leaderboard_mgr.get_user_streak(message.author.id)
+                
+                for jours, pr in streak_pr: 
+                    if current_streak == jours:
+                        await self.ajouter_pr(message.author, pr)
+                        break 
+
 async def setup(bot):
     await bot.add_cog(Classement(bot))
+    
