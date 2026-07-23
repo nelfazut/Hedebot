@@ -40,7 +40,6 @@ async def generate_scoreboard(src:list, iteration:int=0, *, show_before_saving:b
     draw.line((LAST_LINE ,0, LAST_LINE, IMAGE_HEIGHT), fill=LINES_COLOR, width=LINES_WIDTH)
     
     for column,ligne in enumerate(src, start=0):
-        print(ligne[2])
         if len(ligne[0]) > MAX_CHARS:
             ligne[0] = ligne[0][:MAX_CHARS-2]+"..."
             

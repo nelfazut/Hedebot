@@ -4,12 +4,12 @@ import asyncio
 import discord
 from module1 import *
 # all cogs inherit from this base class
-class ExampleCog(commands.Cog):
+class Utilitaires(commands.Cog):
     def __init__(self, bot):
         self.bot = bot # adding a bot attribute for easier access
         self.demarrage = 0
     srlist = []
-    # adding a command to the cog
+
     @commands.command(name="purge")
     @commands.has_role('Soldat.e')
     async def purge(self, ctx, amount):
@@ -79,7 +79,6 @@ class ExampleCog(commands.Cog):
         else:
             await ctx.channel.send("érreur dans l'écriture du temps (ne sont acceptés que les durées données en décimales de secondes(s), de minutes(m), d'heures(h), et de jours(j)) ex : 30s")
 
-    # adding an event listener to the cog
             
     @commands.Cog.listener()
     async def on_message(self, ctx):
@@ -104,12 +103,11 @@ class ExampleCog(commands.Cog):
         embed = discord.Embed(title="**Au revoir**", description= f"**{member.name}** est parti.e", color=0x3f8402)
         embed.set_thumbnail(url = "https://media.discordapp.net/attachments/582101378474835978/990245258753368084/Embleme_pixel_fucked__TEXTE_SD.png")
         await channel.send(f'<@{member.id}>', embed = embed)
-    # doing something when the cog gets unloaded
-    async def cog_unload(self):
-        print(f"{self.__class__.__name__} unloaded!")
+
     @commands.command(name="activator")
     async def activator(self, ctx):
         self.Hedera = ctx
+    
     @commands.command(name = 'aled')
     async def aled(self, ctx):
         if str(ctx.channel.type) == "private":
@@ -150,8 +148,6 @@ class ExampleCog(commands.Cog):
             channel = self.bot.get_channel(int(answers[0][2:-1]))
             print(channel)
             await channel.send(msg)
-# usually you’d use cogs in extensions
-# you would then define a global async function named 'setup', and it would take 'bot' as its only parameter
+
 async def setup(bot):
-    # finally, adding the cog to the bot
-    await bot.add_cog(ExampleCog(bot=bot))
+    await bot.add_cog(Utilitaires(bot=bot))

@@ -7,16 +7,15 @@ class LeaderboardManager:
     Handles reading and writing leaderboard data to the CSV file.
     This hides all the messy file reading logic from the Discord Cogs.
     """
-    def __init__(self, csv_path="classement.csv", json_path = "classement.json", streak_path="streaks.json"):
-        self.csv_path = csv_path
-        self.json_path = json_path
+    def __init__(self, file_path="data/classement.csv", ui_path="data/classement.json", streak_path="data/streaks.json"):
+        self.file_path = file_path
+        self.ui_path = ui_path
         self.streak_path = streak_path
-    #Fichier csv classement
 
     def _read_data(self):
         """Helper method to read the CSV file and return a list of rows."""
         try:
-            with open(self.csv_path, "r", newline="") as f:
+            with open(self.file_path, "r", newline="") as f:
                 return list(csv.reader(f, delimiter=";"))
         except FileNotFoundError:
             # If the file doesn't exist yet, return an empty list
@@ -24,10 +23,22 @@ class LeaderboardManager:
 
     def _write_data(self, data):
         """Helper method to write the list of rows back to the CSV file."""
-        with open(self.csv_path, "w", newline="") as f:
+        with open(self.file_path, "w", newline="") as f:
             writer = csv.writer(f, delimiter=";")
             writer.writerows(data)
-
+    
+    def get_ui_messages(self):
+        """Helper method to read the json file and return a list of messages (IDs)."""
+        try:
+            with open(self.ui_path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            # If the file doesn't exist yet, return an empty list
+            return []
+    def save_ui_messages(self, liste):
+        """Méthode pour modifier le json"""
+        with open(self.ui_path, "w") as f:
+            json.dump(liste, f)
     def get_all_players(self):
         """Returns the entire leaderboard list."""
         return self._read_data()
@@ -40,6 +51,7 @@ class LeaderboardManager:
             if len(row) >= 4 and int(row[3]) == discord_id:
                 return row
         return None
+
     def add_pr(self, discord_id, display_name, color, amount):
         """
         Adds PR points to a user. If the user doesn't exist, they are added to the list.
@@ -73,7 +85,7 @@ class LeaderboardManager:
         # Save the updated list
         self._write_data(data)
 
-    def rename_player(self, discord_id : int, new_name : str) -> bool:
+    def rename_player(self, discord_id, new_name):
         """Updates the name of a specific player."""
         data = self._read_data()
         for i, row in enumerate(data):
@@ -83,7 +95,7 @@ class LeaderboardManager:
                 return True
         return False
 
-    def remove_player(self, discord_id : int):
+    def remove_player(self, discord_id):
         """Removes a player from the leaderboard."""
         data = self._read_data()
         for i, row in enumerate(data):
@@ -92,35 +104,6 @@ class LeaderboardManager:
                 self._write_data(data)
                 return True
         return False
-
-
-    #images classement et messages discord
-    def get_ui_state(self) -> tuple[int, list[int]]:
-        """Récupère l'ID du salon et les IDs des messages du classement."""
-        try:
-            with open(self.json_path, "r", encoding="utf8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) >= 2:
-                    return data[0], data[1]
-                return None, []
-        except (FileNotFoundError, IndexError, KeyError, json.JSONDecodeError):
-            return None, []
-    def get_ui_channel(self) -> int: 
-        """recupere l'id du salon du classement"""
-        return self.get_ui_state()[0]
-
-    def get_ui_messages(self) -> list[int]:
-        """recupere les id des messages du classement"""
-        return self.get_ui_state()[1]
-
-    def save_ui_state(self, channel_id : int, message_ids : list[int]):
-        """Sauvegarde les IDs pour pouvoir les supprimer plus tard."""
-        with open(self.json_path, "w", encoding="utf8") as f:
-            json.dump([channel_id, message_ids], f)
-    def overwrite_ui_messages(self, messages_id):
-        self.save_ui_state(self.get_ui_channel(), messages_id)
-
-    #streaks
     def _get_streak_data(self) -> dict:
         """Renvoie le fichier streaks entier"""
         with open(self.streak_path, "r", encoding="utf8") as f:
@@ -156,31 +139,3 @@ class LeaderboardManager:
         
         # Si le joueur n'a pas joué hier ou aujourd'hui, sa streak est à 0 visuellement
         return streak if last_day >= get_current_day() - 1 else 0
-
-
-
-
-
-
-# ---------------------------------------------------------
-# Test block: This only runs if you run this file directly
-# e.g., `python data/managers/leaderboard.py`
-# ---------------------------------------------------------
-if __name__ == "__main__":
-    print("Testing LeaderboardManager...")
-    # Create a dummy manager using a test file so we don't mess up real data
-    test_mgr = LeaderboardManager("test_classement.csv")
-
-    print("1. Adding new user...")
-    test_mgr.add_pr(111, "Jules", "#ff0000", 50)
-
-    print("2. Adding points to user...")
-    test_mgr.add_pr(111, "Jules", "#00ff00", 25) # Should update color and score
-
-    print("3. Adding second user...")
-    test_mgr.add_pr(222, "Alice", "#0000ff", 100) # Alice should be sorted to the top
-
-    print("Current Leaderboard:")
-    for row in test_mgr.get_all_players():
-        print(row)
-    print("Tests passed.")
