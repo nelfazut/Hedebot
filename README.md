@@ -12,7 +12,8 @@
     "DEFAULT_COLOR": "#ffb000",
     "UI_CHANNEL_ID": <id>,
     "STREAK_CHANNEL_ID": <id>,
-    "STREAK_DAY_PR": [[30,5], [50,15], [100,50], [200,115], [365,220], [500,320], [1000,1100], [2000,2300]]
+    "STREAK_DAY_PR": [[30,5], [50,15], [100,50], [200,115], [365,220], [500,320], [1000,1100], [2000,2300]],
+    "BOT_PREFIX": "h!"
 }
 ```
 - download the alien encounters font at https://www.dafont.com/fr/alien-encounters.font, and copy it into the main directory as alienfont.ttf
