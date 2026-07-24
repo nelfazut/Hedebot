@@ -41,7 +41,7 @@ class reactionrole(commands.Cog):
 
         emojis, roles, channel = self.anwser_to_data(answers)
         if len(emojis) != len(roles):
-            await ctx.send("Vous devez spécifier autant de roles que d'émojios.")
+            return await ctx.send("Vous devez spécifier autant de roles que d'émojis.")
         if envoyer is None:
             msg = await channel.fetch_message(int(answers[0]))
         else:
