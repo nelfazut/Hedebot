@@ -113,7 +113,7 @@ class LeaderboardManager:
     def _write_streak_data(self, data):
         """Ecrit dans le fichier streaks"""
         with open(self.streak_path, "w", encoding="utf8") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=4)
 
     def trigger_streak(self, user_id: int) -> bool:
         """Met à jour la streak et renvoie True si elle vient d'augmenter."""
