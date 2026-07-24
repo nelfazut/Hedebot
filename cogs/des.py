@@ -4,7 +4,7 @@ import discord
 from random import *
 import re
 import numpy as np
-from module1 import *
+from utils.shadowrun_pnj import pnj_shadowrun
 
 
 class des(commands.Cog):

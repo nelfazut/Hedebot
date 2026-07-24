@@ -9,8 +9,7 @@ class ExampleBot(commands.Bot):
     def __init__(self):
         with open("config.json") as f:
             self.config = json.load(f) 
-        # initialise l'objet bot
-        # ici on prend les intents all au cas ou on en ai besoin
+
         super().__init__( 
             command_prefix=self.config["BOT_PREFIX"],
             intents=discord.Intents.all()      
