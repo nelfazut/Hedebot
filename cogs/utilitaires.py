@@ -83,7 +83,8 @@ class Utilitaires(commands.Cog):
     async def on_message(self, ctx):
         if not self.demarrage and str(ctx.channel.type) != "private":
             self.aled_salon = await ctx.guild.fetch_channel(1089639136866086923)
-    
+        if self.bot.user.mentioned_in(ctx) and ctx.author != self.bot.user and discord.utils.get(ctx.guild.roles, name="Soldat.e") in ctx.author.roles: 
+            await ctx.channel.send("Que les témoins prennent acte!!")
     @commands.Cog.listener()
     async def on_member_join(self, member):
         channel = discord.utils.get(member.guild.text_channels, name="canal-de-discussion")

@@ -5,7 +5,6 @@ from data.managers.bets import BetManager
 from data.managers.react_emojis import ReactionroleManager
 import json
 TOKEN = open("TOKEN.txt").read()
-print((TOKEN))
 class ExampleBot(commands.Bot):
     def __init__(self):
         with open("config.json") as f:
