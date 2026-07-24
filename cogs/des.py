@@ -7,7 +7,7 @@ import numpy as np
 from utils.shadowrun_pnj import pnj_shadowrun
 
 
-class des(commands.Cog):
+class Des(commands.Cog):
     def __init__(self, bot):
         self.bot = bot # adding a bot attribute for easier access
     srlist = []
@@ -275,4 +275,4 @@ class des(commands.Cog):
 
 async def setup(bot):
     # finally, adding the cog to the bot
-    await bot.add_cog(des(bot=bot))
+    await bot.add_cog(Des(bot=bot))
