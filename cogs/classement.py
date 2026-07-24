@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from utils.creation_image import *
+from services.creation_image import *
 from io import BytesIO
 from utils.helpers import get_user_color, decouper_liste
 from typing import Union
