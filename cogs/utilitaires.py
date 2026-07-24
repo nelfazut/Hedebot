@@ -2,7 +2,6 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 import discord
-from module1 import *
 # all cogs inherit from this base class
 class Utilitaires(commands.Cog):
     def __init__(self, bot):
@@ -97,6 +96,7 @@ class Utilitaires(commands.Cog):
         await channel.send(f'<@{member.id}>', embed = embed)
         role = discord.utils.get(member.guild.roles, id=int(585146028106448906))
         await member.add_roles(role)
+
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         channel = discord.utils.get(member.guild.text_channels, name="canal-de-discussion")

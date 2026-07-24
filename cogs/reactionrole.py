@@ -6,14 +6,23 @@ import discord
 class reactionrole(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    def anwser_to_data(self, answer : list):
+        emojis = answer[1].split(" ")
+        roles = answer[2].split(" ")
+        roles = [int(k) for k in roles]
+        c_id = int(answer[3][2:-1])
+        channel =  self.bot.get_channel(c_id)
+        return emojis, roles, channel
+
     @commands.command(name="reactionrole")
     @commands.has_role('Soldat.e')
     async def self_role(self, ctx, envoyer = None):
         await ctx.send("Répondez a ces questions dans les deux minutes qui suivent")
         if envoyer is None:
-            questions = ["ID du message: ", "Emojis: ", "Id du rôle", "Salon: "]
+            questions = ["ID du message: ", "Emoji(s): ", "ID du (des) rôle(s)", "Salon: "]
         else:
-            questions = ["Message a envoyer: ", "Emojis: ", "ID du rôle", "Salon: "]
+            questions = ["Message a envoyer: ", "Emoji(s): ", "ID du (des) rôle(s)", "Salon: "]
         answers = []
 
         def check(user):
@@ -30,95 +39,57 @@ class reactionrole(commands.Cog):
             else:
                 answers.append(msg.content)
 
-        emojis = answers[1].split(" ")
-        roles = answers[2].split(";")
-        roles = [int(k) for k in roles]
-        c_id = int(answers[3][2:-1])
-        channel =  self.bot.get_channel(c_id)
+        emojis, roles, channel = self.anwser_to_data(answers)
+        if len(emojis) != len(roles):
+            await ctx.send("Vous devez spécifier autant de roles que d'émojios.")
         if envoyer is None:
             msg = await channel.fetch_message(int(answers[0]))
         else:
             msg = await channel.send(answers[0])
-        with open("selfrole.json", "r") as f:
-            self_roles = json.load(f)
-        try:
-            self_roles[str(msg.id)]
-        except KeyError:
-            self_roles[str(msg.id)] = {}
-            self_roles[str(msg.id)]["emojis"] = emojis
-            self_roles[str(msg.id)]["roles"] = roles
-        else: 
-            self_roles[str(msg.id)]["emojis"] += emojis
-            self_roles[str(msg.id)]["roles"] += roles
-
-        with open("selfrole.json", "w") as f:
-            json.dump(self_roles, f)
-
+        self.bot.reaction_mgr.add_reaction(msg.id, emojis, roles)
         for emoji in emojis:
             await msg.add_reaction(emoji)
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
-        print("reel")
+        """Ajoute le role assoccié si il existe quand on ajoute une réaction a un message"""
         msg_id = payload.message_id
-
-        with open("selfrole.json", "r") as f:
-            self_roles = json.load(f)
+        infos = self.bot.reaction_mgr.get_message_info(msg_id)
 
         if payload.member.bot:
             return
         
-        if str(msg_id) in self_roles:
-            print("réel²")
-            emojis = []
-            roles = []
+        if not infos is None:
+            emojis = infos["emojis"]
+            roles = infos["roles"]
 
-            for emoji in self_roles[str(msg_id)]['emojis']:
-                emojis.append(emoji)
-
-            for role in self_roles[str(msg_id)]['roles']:
-                roles.append(role)
-            
             guild = self.bot.get_guild(payload.guild_id)
 
             for i in range(len(emojis)):
                 choosed_emoji = str(payload.emoji)
                 if choosed_emoji == emojis[i]:
                     selected_role = roles[i]
-                    print(selected_role)
-                    role = discord.utils.get(guild.roles, id=selected_role)
-
+                    role = self.bot.get_guild(payload.guild_id).get_role(selected_role)
                     await payload.member.add_roles(role)
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, payload):
         msg_id = payload.message_id
+        infos = self.bot.reaction_mgr.get_message_info(msg_id)
 
-        with open("selfrole.json", "r") as f:
-            self_roles = json.load(f)
-        
-        if str(msg_id) in self_roles:
-            emojis = []
-            roles = []
+        if infos is not None:
+            emojis = infos["emojis"]
+            roles = infos["roles"]
 
-            for emoji in self_roles[str(msg_id)]['emojis']:
-                emojis.append(
-                    emoji)
-
-            for role in self_roles[str(msg_id)]['roles']:
-                roles.append(role)
-            
             guild = self.bot.get_guild(payload.guild_id)
 
             for i in range(len(emojis)):
                 choosed_emoji = str(payload.emoji)
                 if choosed_emoji == emojis[i]:
                     selected_role = roles[i]
+                    role = self.bot.get_guild(payload.guild_id).get_role(selected_role)
 
-                    role = discord.utils.get(guild.roles, id=selected_role)
-
-                    member = await(guild.fetch_member(payload.user_id))
-                    if member is not None:
-                        await member.remove_roles(role)
+                    await guild.get_member(payload.user_id).remove_roles(role)
 
 async def setup(bot):
     # finally, adding the cog to the bot

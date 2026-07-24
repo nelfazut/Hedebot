@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from data.managers.leaderboard import LeaderboardManager
 from data.managers.bets import BetManager
+from data.managers.react_emojis import ReactionroleManager
 import json
 TOKEN = open("TOKEN.txt").read()
 print((TOKEN))
@@ -17,6 +18,7 @@ class ExampleBot(commands.Bot):
         
     async def setup_hook(self): # on crée une méthode pour charger les extensions
         self.leaderboard_mgr = LeaderboardManager()
+        self.reaction_mgr = ReactionroleManager()
         self.bet_manager = BetManager("data/paris.json")
         await self.load_extension("cogs.classement")
         await self.load_extension("cogs.utilitaires")

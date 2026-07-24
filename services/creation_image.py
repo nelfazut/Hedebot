@@ -12,7 +12,7 @@ LAST_LINE = (IMAGE_WIDTH//100) * 83
 LINES_WIDTH = 5
 LINES_COLOR = '#A6A6A6'
 
-FONT = load_font("alienfont.ttf", 48)
+FONT = load_font("assets/alienfont.ttf", 48)
 PADDING = FIRST_LINE//3
 STROKE_WIDTH = 0
 # 10 40
