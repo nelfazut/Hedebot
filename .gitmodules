@@ -1,0 +1,3 @@
+[submodule "diceio"]
+	path = libs/diceio
+	url = https://github.com/Otomatyk/diceio.git

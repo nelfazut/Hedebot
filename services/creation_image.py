@@ -12,7 +12,7 @@ LAST_LINE = (IMAGE_WIDTH//100) * 83
 LINES_WIDTH = 5
 LINES_COLOR = '#A6A6A6'
 
-FONT = load_font("alienfont.ttf", 48)
+FONT = load_font("assets/alienfont.ttf", 48)
 PADDING = FIRST_LINE//3
 STROKE_WIDTH = 0
 # 10 40
@@ -40,16 +40,15 @@ async def generate_scoreboard(src:list, iteration:int=0, *, show_before_saving:b
     draw.line((LAST_LINE ,0, LAST_LINE, IMAGE_HEIGHT), fill=LINES_COLOR, width=LINES_WIDTH)
     
     for column,ligne in enumerate(src, start=0):
-        print(ligne[2])
-        if len(ligne[0]) > MAX_CHARS:
-            ligne[0] = ligne[0][:MAX_CHARS-2]+"..."
+        if len(ligne.nom) > MAX_CHARS:
+            ligne.nom = ligne.nom[:MAX_CHARS-2]+"..."
             
-        FONT_COLOR = ligne[1]
+        FONT_COLOR = ligne.color
         Y = column*COLUMN_HEIGHT
         
         draw_text((PADDING, Y), str(column+1+iteration*12), fill=FONT_COLOR)
-        draw_text((FIRST_LINE + PADDING, Y), ligne[0], fill=FONT_COLOR)
-        draw_text((LAST_LINE + PADDING, Y), str(ligne[2]), fill=FONT_COLOR)
+        draw_text((FIRST_LINE + PADDING, Y), ligne.nom, fill=FONT_COLOR)
+        draw_text((LAST_LINE + PADDING, Y), str(ligne.pr), fill=FONT_COLOR)
 
     if show_before_saving:
         scoreboard_image.show()
