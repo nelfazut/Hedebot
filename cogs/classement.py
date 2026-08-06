@@ -26,14 +26,16 @@ class Classement(commands.Cog):
             user = guild.get_member(user_id) if guild else None
         else:
             user = user_input
+            
         # 2. Gestion de la couleur et du nom
         if user:
             color = get_user_color(user.roles)
             display_name = user.display_name
         else:
-            old_data = mgr.get_player(user_id)
+            old_data = mgr.get_player(user_id) # Note: 'mgr' semble ne pas être défini ici, c'est peut-être un oubli dans ton code original
             color = old_data.color if old_data else "#ffb000"
             display_name = old_data.nom if old_data else f"Joueur {user_id}"
+            
         # 3. Mise à jour via le manager
         leaderboard_mgr.add_pr(user_id, display_name, color, nombre)
         if gui:
@@ -41,7 +43,12 @@ class Classement(commands.Cog):
 
     @commands.command(name="prtemp")
     @commands.has_role("Soldat.e")
-    async def prtemp(self, ctx, user : discord.Member, nombre : int):
+    async def prtemp(
+        self, 
+        ctx, 
+        user: discord.Member = commands.parameter(description="Le membre à qui ajouter les PR"), 
+        nombre: int = commands.parameter(description="Le nombre de PR à ajouter")
+    ):
         """ajoute des pr au classement temporaire"""
         await self.ajouter_pr(user, nombre, self.bot.leaderboard_mgr_tmp, gui=False)
 
@@ -61,13 +68,17 @@ class Classement(commands.Cog):
 
     @commands.command(name="pr")
     @commands.has_role("Soldat.e")
-    async def pr(self, ctx, user : discord.Member , nombre : int):
-        """Ajoute des prs au membres"""
+    async def pr(
+        self, 
+        ctx, 
+        user: discord.Member = commands.parameter(description="Le membre à qui ajouter les PR"), 
+        nombre: int = commands.parameter(description="Le nombre de PR à lui donner")
+    ):
+        """Ajoute des prs au membre"""
         await self.ajouter_pr(user, nombre, self.bot.leaderboard_mgr)
         
     async def update_classement(self):
         """Met à jour les images du classement sur discord en se basant sur l'état en mémoire"""
-        
         channel_id = self.bot.config["RANKING_CHANNEL"]
             
         channel = self.bot.get_channel(channel_id)
@@ -80,6 +91,7 @@ class Classement(commands.Cog):
                 await msg.delete()
             except discord.NotFound:
                 pass 
+                
         membres = self.bot.leaderboard_mgr.get_all_players()
         new_messages = []
         for i, k in enumerate(decouper_liste(membres, 12)):
@@ -92,14 +104,26 @@ class Classement(commands.Cog):
             message = await channel.send(file=discord_file)
             new_messages.append(message.id)
         self.bot.leaderboard_mgr.save_ui_messages(new_messages)
+
     @commands.command(name="nomclassement")
-    async def nomclassement(self, ctx, *, phrase):
+    async def nomclassement(
+        self, 
+        ctx, 
+        *, 
+        phrase: str = commands.parameter(description="Le nouveau nom à afficher sur le classement")
+    ):
         """Change le nom de l'utilisateur au classement"""
         await self.fnomclassement(ctx, ctx.author, phrase=phrase)
 
     @commands.command(name="fnomclassement")
     @commands.has_role("Soldat.e")
-    async def fnomclassement(self, ctx, user : discord.Member, *, phrase):
+    async def fnomclassement(
+        self, 
+        ctx, 
+        user: discord.Member = commands.parameter(description="Le membre dont on veut changer le nom"), 
+        *, 
+        phrase: str = commands.parameter(description="Le nouveau nom à afficher")
+    ):
         """force le changement de nom de l'utilisateur ciblé au classement"""
         if ("\n" in phrase or ";" in phrase):
             await ctx.send("nom invalide")
@@ -114,7 +138,11 @@ class Classement(commands.Cog):
 
     @commands.has_role("Soldat.e")
     @commands.command(name="remove")
-    async def remove(self, ctx, user : discord.Member):
+    async def remove(
+        self, 
+        ctx, 
+        user: discord.Member = commands.parameter(description="Le membre à retirer du classement")
+    ):
         """retire un utilisateur du classement"""
         self.bot.leaderboard_mgr.remove_player(user.id)
         await self.update_classement()
@@ -135,7 +163,14 @@ class Classement(commands.Cog):
         return await ctx.send(embed=embed)
     
     @commands.command(name="pari")
-    async def pari(self, ctx, adversaire: discord.Member = None, montant: int = None, *, objet: str = None):
+    async def pari(
+        self, 
+        ctx, 
+        adversaire: discord.Member = commands.parameter(default=None, description="Le membre que vous souhaitez défier"), 
+        montant: int = commands.parameter(default=None, description="La mise en PR (multiple de 5)"), 
+        *, 
+        objet: str = commands.parameter(default=None, description="L'enjeu ou la description du pari")
+    ):
         """Lance un défi à un autre joueur ou affiche les paris en cours."""
         
         # 1. CAS : Affichage des paris en cours (si aucun argument n'est fourni)
@@ -147,8 +182,9 @@ class Classement(commands.Cog):
         if not montant or not objet or not adversaire:
             return await ctx.send("Usage: `h!pari @user [montant] [objet]`")
 
-        if not montant%5 == 0:
+        if not montant % 5 == 0:
             return await ctx.send("EH C'EST QUOI CE MONTANT????? NAN MAIS OH TU CROIS QUE TU VAS T'ECHAPPER DES MULTIPLES DE 5PR COMME CA? JE CROIS PAS NON. Parie un multiple de 5.")
+            
         # Vérification du solde PR
         # On récupère les données des deux joueurs
         p1 = self.bot.leaderboard_mgr.get_player(ctx.author.id)
@@ -174,7 +210,11 @@ class Classement(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
     @commands.command(name="rendlargent")
-    async def rendlargent(self, ctx, pari_id: int):
+    async def rendlargent(
+        self, 
+        ctx, 
+        pari_id: int = commands.parameter(description="L'identifiant du pari à résoudre")
+    ):
         """Déclenche la phase de résolution d'un pari spécifique."""
         
         # Récupération du pari par son ID unique
@@ -203,15 +243,25 @@ class Classement(commands.Cog):
         
         view = PariResolutionView(self.bot, pari, vainqueur, perdant)
         await ctx.send(embed=embed, view=view)
+
     @commands.command(name="annuler_pari")
     @commands.has_role("Soldat.e")
-    async def annuler_pari(self, ctx, id : int):
+    async def annuler_pari(
+        self, 
+        ctx, 
+        id: int = commands.parameter(description="L'identifiant du pari à annuler")
+    ):
         """annule un pari"""
         self.bot.bet_manager.remove_bet(id)
         await ctx.send("pari annulé")
+
     @commands.command(name="streak")
-    async def streak(self, ctx, user : discord.Member = None):
-        """affiche la streak du membre ou du membre ciblé"""
+    async def streak(
+        self, 
+        ctx, 
+        user: discord.Member = commands.parameter(default=None, description="Le membre dont on veut voir la streak (laisser vide pour soi-même)")
+    ):
+        """affiche la streak de l'auteur ou du membre ciblé"""
         if user == None:
             await ctx.send(f"Vous avez joué {self.bot.streak_mgr.get_user_streak(ctx.author.id)} jours")
         else:
@@ -229,7 +279,6 @@ class Classement(commands.Cog):
                     if current_streak == jours:
                         await message.channel.send(f"Pour avoir joué {jours} jours, {message.author.mention} gagne {pr} pr!")
                         await self.ajouter_pr(message.author, pr)
-                        
                         break 
 
 async def setup(bot):
