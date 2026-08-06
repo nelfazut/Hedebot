@@ -147,6 +147,9 @@ class Utilitaires(commands.Cog):
     ):
         """Fait parler le bot dans un salon spécifique"""
         await channel.send(message)
-
+    @commands.command(name="steak")
+    async def steak(self, ctx):
+        """Si on se trompe de commande"""
+        await ctx.send("végétal et à point, j'espère")
 async def setup(bot):
     await bot.add_cog(Utilitaires(bot=bot))
