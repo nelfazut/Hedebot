@@ -2,15 +2,22 @@ import csv
 import unidecode
 import json
 from utils.helpers import get_current_day
+from tabulate import tabulate
+from data.models import UserClassement
+
 class LeaderboardManager:
     """
     Handles reading and writing leaderboard data to the CSV file.
     This hides all the messy file reading logic from the Discord Cogs.
     """
-    def __init__(self, file_path="data/classement.csv", ui_path="data/classement.json", streak_path="data/streaks.json"):
+    def __init__(self, file_path="data/classement.csv", ui_path="data/classement.json"):
         self.file_path = file_path
         self.ui_path = ui_path
-        self.streak_path = streak_path
+    def __repr__(self):
+        data = self._read_data()
+        data_utile = [[a[0], a[2]] for a in data]
+        data_utile.insert(0, ["Joueur", "PRs"])
+        return tabulate(data_utile, headers="firstrow", tablefmt="plain")
 
     def _read_data(self):
         """Helper method to read the CSV file and return a list of rows."""
@@ -41,7 +48,11 @@ class LeaderboardManager:
             json.dump(liste, f)
     def get_all_players(self):
         """Returns the entire leaderboard list."""
-        return self._read_data()
+        data = self._read_data()
+        userlist = []
+        for row in data:
+            userlist.append(UserClassement(id=int(row[3]),nom=row[0],color=row[1],pr=int(row[2])))
+        return userlist
 
     def get_player(self, discord_id):
         """Finds and returns a specific player by their Discord ID, or None if not found."""
@@ -49,7 +60,7 @@ class LeaderboardManager:
         for row in data:
             # Check if row has enough elements to avoid index errors
             if len(row) >= 4 and int(row[3]) == discord_id:
-                return row
+                return UserClassement(id=int(row[3]),nom=row[0],color=row[1],pr=int(row[2]))
         return None
 
     def add_pr(self, discord_id, display_name, color, amount):
@@ -84,7 +95,6 @@ class LeaderboardManager:
 
         # Save the updated list
         self._write_data(data)
-
     def rename_player(self, discord_id, new_name):
         """Updates the name of a specific player."""
         data = self._read_data()
@@ -104,38 +114,6 @@ class LeaderboardManager:
                 self._write_data(data)
                 return True
         return False
-    def _get_streak_data(self) -> dict:
-        """Renvoie le fichier streaks entier"""
-        with open(self.streak_path, "r", encoding="utf8") as f:
-            data = json.load(f)
-        return data
-
-    def _write_streak_data(self, data):
-        """Ecrit dans le fichier streaks"""
-        with open(self.streak_path, "w", encoding="utf8") as f:
-            json.dump(data, f, indent=4)
-
-    def trigger_streak(self, user_id: int) -> bool:
-        """Met à jour la streak et renvoie True si elle vient d'augmenter."""
-        data = self._get_streak_data()
-        user_str, current_day = str(user_id), get_current_day()
-        
-        last_day, streak = data.get(user_str, [0, 0])
-        
-        # Si c'est aujourd'hui, on coupe court et on renvoie False
-        if last_day == current_day:
-            return False 
-            
-        data[user_str] = [current_day, streak + 1 if last_day == current_day - 1 else 1]
-        self._write_streak_data(data)
-        
-        # La streak a été modifiée avec succès, on renvoie True
-        return True
     
-    def get_user_streak(self, user_id: int) -> int:
-        """Lit la streak actuelle (pour la commande !streak) sans tricher."""
-        data = self._get_streak_data()
-        last_day, streak = data.get(str(user_id), [0, 0])
-        
-        # Si le joueur n'a pas joué hier ou aujourd'hui, sa streak est à 0 visuellement
-        return streak if last_day >= get_current_day() - 1 else 0
+    def reset(self):
+        return self._write_data([])

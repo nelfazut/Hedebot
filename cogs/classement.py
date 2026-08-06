@@ -9,7 +9,10 @@ class Classement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def ajouter_pr(self, user_input: Union[discord.Member, int], nombre: int):
+    async def ajouter_pr(self, user_input: Union[discord.Member, int], nombre: int, leaderboard_mgr = None, gui=True):
+        """mécanisme principal d'ajout de pr"""
+        if not leaderboard_mgr:
+            leaderboard_mgr = self.bot.leaderboard_mgr
         excluded = self.bot.config["EXCLUDED_IDS"]
         
         user_id = user_input.id if isinstance(user_input, discord.Member) else user_input
@@ -18,7 +21,7 @@ class Classement(commands.Cog):
             return
 
         # Récupération du membre via la config
-        if isinstance(user_input, int):
+        if not isinstance(user_input, discord.Member):
             guild = self.bot.get_guild(self.bot.config["GUILD_ID"])
             user = guild.get_member(user_id) if guild else None
         else:
@@ -28,19 +31,40 @@ class Classement(commands.Cog):
             color = get_user_color(user.roles)
             display_name = user.display_name
         else:
-            old_data = self.bot.leaderboard_mgr.get_player(user_id)
-            color = old_data[1] if old_data else "#ffb000"
-            display_name = old_data[0] if old_data else f"Joueur {user_id}"
+            old_data = mgr.get_player(user_id)
+            color = old_data.color if old_data else "#ffb000"
+            display_name = old_data.nom if old_data else f"Joueur {user_id}"
         # 3. Mise à jour via le manager
-        self.bot.leaderboard_mgr.add_pr(user_id, display_name, color, nombre)
-        # 4. Actualisation visuelle
-        await self.update_classement()
+        leaderboard_mgr.add_pr(user_id, display_name, color, nombre)
+        if gui:
+            await self.update_classement()
+
+    @commands.command(name="prtemp")
+    @commands.has_role("Soldat.e")
+    async def prtemp(self, ctx, user : discord.Member, nombre : int):
+        """ajoute des pr au classement temporaire"""
+        await self.ajouter_pr(user, nombre, self.bot.leaderboard_mgr_tmp, gui=False)
+
+    @commands.command(name="classementtemp")
+    @commands.has_role("Soldat.e")
+    async def afficher_classement_temp(self, ctx):
+        """renvoie le classement temporaire en format texte"""
+        await ctx.send(str(self.bot.leaderboard_mgr_tmp))
+    
+    @commands.command(name="fusion")
+    @commands.has_role("Soldat.e")
+    async def fusion_classement(self, ctx):
+        """Fusionne le classement temporaire et le classement normal dans le classement normal"""
+        for user in self.bot.leaderboard_mgr_tmp.get_all_players():
+            await self.ajouter_pr(user.id, user.pr, self.bot.leaderboard_mgr)
+        self.bot.leaderboard_mgr_tmp.reset()
 
     @commands.command(name="pr")
     @commands.has_role("Soldat.e")
     async def pr(self, ctx, user : discord.Member , nombre : int):
-        await self.ajouter_pr(user, nombre)
-
+        """Ajoute des prs au membres"""
+        await self.ajouter_pr(user, nombre, self.bot.leaderboard_mgr)
+        
     async def update_classement(self):
         """Met à jour les images du classement sur discord en se basant sur l'état en mémoire"""
         
@@ -48,7 +72,7 @@ class Classement(commands.Cog):
             
         channel = self.bot.get_channel(channel_id)
         if not channel:
-            return # Sécurité au cas où le bot n'a pas accès au salon
+            return 
 
         for m_id in self.bot.leaderboard_mgr.get_ui_messages():
             try:
@@ -130,7 +154,7 @@ class Classement(commands.Cog):
         p1 = self.bot.leaderboard_mgr.get_player(ctx.author.id)
         p2 = self.bot.leaderboard_mgr.get_player(adversaire.id)
 
-        if (not p1 or int(p1[2]) < montant or not p2 or int(p2[2]) < montant) and not (ctx.author.id in self.bot.config["EXCLUDED_IDS"] or adversaire.id in self.bot.config["EXCLUDED_IDS"]):
+        if (not p1 or p1.pr < montant or not p2 or p2.id < montant) and not (ctx.author.id in self.bot.config["EXCLUDED_IDS"] or adversaire.id in self.bot.config["EXCLUDED_IDS"]):
             return await ctx.send("Alors comme ça on est trop pauvre? bouuuuhhhh retente quand tu pourra assumer ta défaite")
 
         # Création du pari via le manager (renvoie un objet Pari)
@@ -179,24 +203,33 @@ class Classement(commands.Cog):
         
         view = PariResolutionView(self.bot, pari, vainqueur, perdant)
         await ctx.send(embed=embed, view=view)
-
+    @commands.command(name="annuler_pari")
+    @commands.has_role("Soldat.e")
+    async def annuler_pari(self, ctx, id : int):
+        """annule un pari"""
+        self.bot.bet_manager.remove_bet(id)
+        await ctx.send("pari annulé")
     @commands.command(name="streak")
     async def streak(self, ctx, user : discord.Member = None):
+        """affiche la streak du membre ou du membre ciblé"""
         if user == None:
-            await ctx.send(f"Vous avez joué {self.bot.leaderboard_mgr.get_user_streak(ctx.author.id)} jours")
+            await ctx.send(f"Vous avez joué {self.bot.streak_mgr.get_user_streak(ctx.author.id)} jours")
         else:
-            await ctx.send(f"{user.nick} a joué {self.bot.leaderboard_mgr.get_user_streak(user.id)} jours")
+            await ctx.send(f"{user.nick} a joué {self.bot.streak_mgr.get_user_streak(user.id)} jours")
+
     @commands.Cog.listener()
     async def on_message(self, message):
+        """Jeu des streaks"""
         if message.channel.id == self.bot.config["STREAK_CHANNEL_ID"]:
-            streak_updated = self.bot.leaderboard_mgr.trigger_streak(message.author.id)
+            streak_updated = self.bot.streak_mgr.trigger_streak(message.author.id)
             if streak_updated:
-                current_streak = self.bot.leaderboard_mgr.get_user_streak(message.author.id)
+                current_streak = self.bot.streak_mgr.get_user_streak(message.author.id)
                 
                 for jours, pr in self.bot.config["STREAK_DAY_PR"]: 
                     if current_streak == jours:
                         await message.channel.send(f"Pour avoir joué {jours} jours, {message.author.mention} gagne {pr} pr!")
                         await self.ajouter_pr(message.author, pr)
+                        
                         break 
 
 async def setup(bot):

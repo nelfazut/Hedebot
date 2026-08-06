@@ -40,15 +40,15 @@ async def generate_scoreboard(src:list, iteration:int=0, *, show_before_saving:b
     draw.line((LAST_LINE ,0, LAST_LINE, IMAGE_HEIGHT), fill=LINES_COLOR, width=LINES_WIDTH)
     
     for column,ligne in enumerate(src, start=0):
-        if len(ligne[0]) > MAX_CHARS:
-            ligne[0] = ligne[0][:MAX_CHARS-2]+"..."
+        if len(ligne.nom) > MAX_CHARS:
+            ligne.nom = ligne.nom[:MAX_CHARS-2]+"..."
             
-        FONT_COLOR = ligne[1]
+        FONT_COLOR = ligne.color
         Y = column*COLUMN_HEIGHT
         
         draw_text((PADDING, Y), str(column+1+iteration*12), fill=FONT_COLOR)
-        draw_text((FIRST_LINE + PADDING, Y), ligne[0], fill=FONT_COLOR)
-        draw_text((LAST_LINE + PADDING, Y), str(ligne[2]), fill=FONT_COLOR)
+        draw_text((FIRST_LINE + PADDING, Y), ligne.nom, fill=FONT_COLOR)
+        draw_text((LAST_LINE + PADDING, Y), str(ligne.pr), fill=FONT_COLOR)
 
     if show_before_saving:
         scoreboard_image.show()

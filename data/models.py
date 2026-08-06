@@ -7,3 +7,9 @@ class Pari:
     adversaire_id: int
     objet: str
     montant: int
+@dataclass
+class UserClassement:
+    id: int
+    nom: str
+    color: str
+    pr: int

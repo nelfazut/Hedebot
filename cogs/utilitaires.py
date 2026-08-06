@@ -2,116 +2,91 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 import discord
+import re
+from collections import Counter
 # all cogs inherit from this base class
 class Utilitaires(commands.Cog):
     def __init__(self, bot):
         self.bot = bot # adding a bot attribute for easier access
         self.demarrage = 0
-    srlist = []
-
+        self.aled_messages = []
+    
+    @property
+    def guild(self):
+        return self.bot.get_guild(self.bot.config["GUILD_ID"])
+        
+    @property
+    def help_channel(self):
+        if self.guild:
+            return self.guild.get_channel(self.bot.config["HELP_CHANNEL"])
+        return None
+        
     @commands.command(name="purge")
     @commands.has_role('Soldat.e')
-    async def purge(self, ctx, amount):
-        amount = int(amount)
+    async def purge(self, ctx, amount: int):
         if amount > 1000:
-            await ctx.send(f"trop de message selectionnés ({amount}/1000)")
-        else:
-            count_members = {}
-            messages = [m async for m in ctx.channel.history(limit=amount)]#await ctx.channel.history(limit=amount).flatten()
-            for message in messages:
-                if str(message.author) in count_members:
-                    count_members[str(message.author)] += 1 
-                else:
-                    count_members[str(message.author)] = 1 
-            new_string = []
-            messages_deleted = 0 
-            for author, message_deleted in list(count_members.items()):
-                new_string.append(f'**{author}**: {message_deleted}')
-                messages_deleted += message_deleted
-            final_string ='\n'.join(new_string)
-            await ctx.channel.purge(limit=amount+1 )
-            msg = await ctx.send(f'{messages_deleted} message are removed \n\n{final_string}')
-            await asyncio.sleep(2)
-            await msg.delete()
+            return await ctx.send(f"Trop de messages sélectionnés ({amount}/1000)")
+        deleted = await ctx.channel.purge(limit=amount + 1)
+        deleted_msgs = [m for m in deleted if m.id != ctx.message.id]
+        counts = Counter(str(m.author) for m in deleted_msgs)
+        summary = '\n'.join([f"**{author}**: {count}" for author, count in counts.items()])
+        await ctx.send(f"{len(deleted_msgs)} messages ont été supprimés\n\n{summary}", delete_after=2.0)
     
-    # adding a slash command to the cog (make sure to sync this!)
     @commands.command(name="rappel")
-    async def remind(self, ctx):
-        await ctx.send("Répondez a ces questions dans les cinq minutes qui suivent")
+    async def remind(self, ctx, temps: str, *, message: str):
+        matches = re.findall(r'(\d+(?:\.\d+)?)([smhj])', temps.lower())
+        if not matches:
+            await ctx.send("Format de temps invalide. Utilisez `s`, `m`, `h`, `j` **sans espaces** (ex: `ht!rappel 1h30m prendre la bastille`).")
+            return    
 
-        questions = ["Message", "Temps"]
-        answers = []
+        total_secondes = 0
+        multiplicateurs = {'s': 1, 'm': 60, 'h': 3600, 'j': 86400}
 
-        def check(user):
-            return user.author == ctx.author and user.channel == ctx.channel
-        
-        for question in questions:
-            await ctx.send(question)
-
-            try:
-                msg = await self.bot.wait_for('message', timeout=300.0, check=check)
-            except asyncio.TimeoutError:
-                await ctx.send("Soyez plus rapide la prochaine fois 😉")
-                return
-            else:
-                answers.append(msg.content)
-        if not answers[1].find('s') == -1:
-            var=int(answers[1].find('s'))
-            await ctx.channel.send('Quête acceptée!')
-            aled = await asyncio.sleep(int(answers[1][0:var]))
-            await ctx.channel.send(answers[0]+' <@'+str(ctx.author.id)+'>')
-        elif not answers[1].find('m') == -1:
-            var=int(answers[1].find('m'))
-            await ctx.channel.send('Quête acceptée!')
-            aled = await asyncio.sleep(int(float(answers[1][0:var])*60))
-            await ctx.channel.send(answers[0]+' <@'+str(ctx.author.id)+'>')
-        elif not answers[1].find('h') == -1:
-            var=int(answers[1].find('h'))
-            await ctx.channel.send('Quête acceptée!')
-            aled = await asyncio.sleep(int(float(answers[1][0:var])*3600))
-            await ctx.channel.send(answers[0]+' <@'+str(ctx.author.id)+'>')
-        elif not answers[1].find('j') == -1:
-            var=int(answers[1].find('j'))
-            await ctx.channel.send('Quête acceptée!')
-            aled = await asyncio.sleep(int(float(answers[1][0:var])*86400))
-            await ctx.channel.send(answers[0]+' <@'+str(ctx.author.id)+'>')
-        else:
-            await ctx.channel.send("érreur dans l'écriture du temps (ne sont acceptés que les durées données en décimales de secondes(s), de minutes(m), d'heures(h), et de jours(j)) ex : 30s")
-
+        for valeur, unite in matches:
+            total_secondes += float(valeur) * multiplicateurs[unite]
             
+        if total_secondes <= 0:
+            await ctx.send("Le temps doit être supérieur à 0.")
+            return
+
+        await ctx.send(f'Quête acceptée !')
+        
+        await asyncio.sleep(total_secondes)
+        
+        await ctx.send(f"{message} {ctx.author.mention}")
+        
+    @remind.error
+    async def remind_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("❌ Il manque des arguments. Utilisation : `ht!rappel <temps> <message>`")
+    
     @commands.Cog.listener()
     async def on_message(self, ctx):
         if not self.demarrage and str(ctx.channel.type) != "private":
-            self.aled_salon = await ctx.guild.fetch_channel(1089639136866086923)
+            self.aled_salon = await ctx.guild.fetch_channel(self.bot.config["HELP_CHANNEL"])
         if self.bot.user.mentioned_in(ctx) and ctx.author != self.bot.user and discord.utils.get(ctx.guild.roles, name="Soldat.e") in ctx.author.roles: 
             await ctx.channel.send("Que les témoins prennent acte!!")
+    
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        channel = discord.utils.get(member.guild.text_channels, name="canal-de-discussion")
-        embed = discord.Embed(title="**Bienvenue dans la guilde!**", description= "Bienvenue dans la Guilde, jeune Adorateur.ice ! "
-    "Passe voir le maître de compétences dans le <#585151108465426442> et gagne des points de réputation grâce à ton <#627854418473123871>."
-    "Les mises à jours apparaissent dans les <#589082158174306330>."
-    "Attention cependant à respecter la sacro-sainte Charte placardée dans les <#582101378474835978>."
-    "Tu peux également visiter ton QG, rendez-vous à l'<#903739233079025705>!", color=0x3f8402)
-        embed.set_thumbnail(url = "https://media.discordapp.net/attachments/582101378474835978/990245258753368084/Embleme_pixel_fucked__TEXTE_SD.png")
+        channel = member.guild.get_channel(self.bot.config["DEFAULT_CHANNEL"])
+        embed = discord.Embed(title="**Bienvenue dans la guilde!**",
+         description= self.bot.config["ARRIVAL_MESSAGE"], color=0x3f8402)
+        embed.set_thumbnail(url = self.bot.config["LOGO_LINK"])
         await channel.send(f'<@{member.id}>', embed = embed)
-        role = discord.utils.get(member.guild.roles, id=int(585146028106448906))
+        role = member.guild.get_role(self.bot.config["DEFAULT_ROLE"])
         await member.add_roles(role)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        channel = discord.utils.get(member.guild.text_channels, name="canal-de-discussion")
+        channel = member.guild.get_channel(self.bot.config["DEFAULT_CHANNEL"])
         embed = discord.Embed(title="**Au revoir**", description= f"**{member.name}** est parti.e", color=0x3f8402)
-        embed.set_thumbnail(url = "https://media.discordapp.net/attachments/582101378474835978/990245258753368084/Embleme_pixel_fucked__TEXTE_SD.png")
-        await channel.send(f'<@{member.id}>', embed = embed)
+        embed.set_thumbnail(url = self.bot.config["LOGO_LINK"])
+        await channel.send(f'{member.mention}', embed = embed)
 
-    @commands.command(name="activator")
-    async def activator(self, ctx):
-        self.Hedera = ctx
-    
     @commands.command(name = 'aled')
     async def aled(self, ctx):
-        if str(ctx.channel.type) == "private":
+        if ctx.channel.type == discord.ChannelType.private:
             def check(user):
                 return user.author == ctx.author and user.channel == ctx.channel
             await ctx.channel.send("Envoie le message que tu shouaite voir apparaitre")
@@ -121,34 +96,18 @@ class Utilitaires(commands.Cog):
                 await ctx.send("Soyez plus rapide la prochaine fois :wink:")
                 return
             embed = discord.Embed(title="un membre a besoin d'aide!", description=msg.content, color=0x3f8402)
-            await self.aled_salon.send(embed = embed)
+            self.aled_messages.append([(await self.help_channel.send(embed = embed)).id, embed])
+            await ctx.send("message bien envoyé")
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        for aled_message in self.aled_messages:
+            if aled_message[0] == message.id:
+                new_msg = await message.channel.send(embed = aled_message[1])
+                aled_message[0] = new_msg.id
     @commands.command(name = "parle")
     @commands.has_role('Soldat.e')
-    async def parler_cmd(self, ctx):
-        answers = []
-
-        def check(user):
-            return user.author == ctx.author and user.channel == ctx.channel
-        
-        await ctx.send('Salon :')
-
-        try:
-            msg = await self.bot.wait_for('message', timeout=120.0, check=check)
-        except asyncio.TimeoutError:
-            await ctx.send("Soyez plus rapide la prochaine fois :wink:")
-            return
-        else:
-            answers.append(msg.content)
-        await ctx.send('message:')
-        msg = await self.bot.wait_for('message', check=check)
-        msg = msg.content
-        if msg == 'stop':
-            ctx.send("commande annulée")
-        else:
-            print(answers)
-            channel = self.bot.get_channel(int(answers[0][2:-1]))
-            print(channel)
-            await channel.send(msg)
+    async def parler_cmd(self, ctx, channel : discord.TextChannel, *, message):
+        await channel.send(message)
 
 async def setup(bot):
     await bot.add_cog(Utilitaires(bot=bot))

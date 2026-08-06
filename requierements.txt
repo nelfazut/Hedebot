@@ -2,3 +2,4 @@ discord
 pillow
 unidecode
 numpy
+tabulate

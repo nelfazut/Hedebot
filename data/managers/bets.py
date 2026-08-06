@@ -21,7 +21,7 @@ class BetManager:
     def _write_raw(self, data: dict):
         with open(self.filepath, "w", encoding="utf8") as f:
             json.dump(data, f, indent=4)
-
+    
     def create_bet(self, lanceur_id: int, adversaire_id: int, objet: str, montant: int) -> Pari:
         data = self._read_raw()
         new_id = data["last_id"] + 1

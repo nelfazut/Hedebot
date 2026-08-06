@@ -13,7 +13,12 @@
     "UI_CHANNEL_ID": <id>,
     "STREAK_CHANNEL_ID": <id>,
     "STREAK_DAY_PR": [[30,5], [50,15], [100,50], [200,115], [365,220], [500,320], [1000,1100], [2000,2300]],
-    "BOT_PREFIX": "h!"
+    "BOT_PREFIX": "h!",
+    "ARRIVAL_MESSAGE": "<message>",
+    "LOGO_LINK" : "<link of your guild logo>",
+    "DEFAULT_CHANNEL" : <id>,
+    "DEFAULT_ROLE" : <id>,
+    "HELP_CHANNEL" : <id>
 }
 ```
 - download the alien encounters font at https://www.dafont.com/fr/alien-encounters.font, and copy it into the main directory as alienfont.ttf
