@@ -8,7 +8,17 @@ from typing import Union
 class Classement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
+        
+    @property
+    def guild(self):
+        return self.bot.get_guild(self.bot.config["GUILD_ID"])
+        
+    @property
+    def default_channel(self):
+        if self.guild:
+            return self.guild.get_channel(self.bot.config["DEFAULT_CHANNEL"])
+        return None
+    
     async def ajouter_pr(self, user_input: Union[discord.Member, int], nombre: int, leaderboard_mgr = None, gui=True):
         """mécanisme principal d'ajout de pr"""
         if not leaderboard_mgr:
@@ -32,7 +42,7 @@ class Classement(commands.Cog):
             color = get_user_color(user.roles)
             display_name = user.display_name
         else:
-            old_data = mgr.get_player(user_id) # Note: 'mgr' semble ne pas être défini ici, c'est peut-être un oubli dans ton code original
+            old_data = leaderboard_mgr.get_player(user_id)
             color = old_data.color if old_data else "#ffb000"
             display_name = old_data.nom if old_data else f"Joueur {user_id}"
             
@@ -80,7 +90,6 @@ class Classement(commands.Cog):
     async def update_classement(self):
         """Met à jour les images du classement sur discord en se basant sur l'état en mémoire"""
         channel_id = self.bot.config["RANKING_CHANNEL"]
-            
         channel = self.bot.get_channel(channel_id)
         if not channel:
             return 
@@ -126,11 +135,12 @@ class Classement(commands.Cog):
     ):
         """force le changement de nom de l'utilisateur ciblé au classement"""
         if ("\n" in phrase or ";" in phrase):
-            await ctx.send("nom invalide")
-            return
+            return await ctx.send("nom invalide")
+            
         if self.bot.leaderboard_mgr.rename_player(user.id, phrase):
             await self.update_classement()
             return
+            
         if user.id == ctx.author.id:
             await ctx.send("Vous n'appartenez pas au classement")
         else:
@@ -172,31 +182,23 @@ class Classement(commands.Cog):
         objet: str = commands.parameter(default=None, description="L'enjeu ou la description du pari")
     ):
         """Lance un défi à un autre joueur ou affiche les paris en cours."""
-        
-        # 1. CAS : Affichage des paris en cours (si aucun argument n'est fourni)
         if adversaire is None and montant is None:
             return await self.renvoyer_paris_actifs(ctx)
 
-        # 2. CAS : Lancement d'un nouveau pari
-        # Vérification des arguments
         if not montant or not objet or not adversaire:
             return await ctx.send("Usage: `h!pari @user [montant] [objet]`")
 
         if not montant % 5 == 0:
             return await ctx.send("EH C'EST QUOI CE MONTANT????? NAN MAIS OH TU CROIS QUE TU VAS T'ECHAPPER DES MULTIPLES DE 5PR COMME CA? JE CROIS PAS NON. Parie un multiple de 5.")
             
-        # Vérification du solde PR
-        # On récupère les données des deux joueurs
         p1 = self.bot.leaderboard_mgr.get_player(ctx.author.id)
         p2 = self.bot.leaderboard_mgr.get_player(adversaire.id)
 
-        if (not p1 or p1.pr < montant or not p2 or p2.id < montant) and not (ctx.author.id in self.bot.config["EXCLUDED_IDS"] or adversaire.id in self.bot.config["EXCLUDED_IDS"]):
+        if (not p1 or p1.pr < montant or not p2 or p2.pr < montant) and not (ctx.author.id in self.bot.config["EXCLUDED_IDS"] or adversaire.id in self.bot.config["EXCLUDED_IDS"]):
             return await ctx.send("Alors comme ça on est trop pauvre? bouuuuhhhh retente quand tu pourra assumer ta défaite")
 
-        # Création du pari via le manager (renvoie un objet Pari)
         nouveau_pari = self.bot.bet_manager.create_bet(ctx.author.id, adversaire.id, objet, montant)
 
-        # Envoi de la vue d'acceptation
         from cogs.views.pari_view import PariAcceptationView
         embed = discord.Embed(
             title="Un pari a été lancé !!!", 
@@ -216,8 +218,6 @@ class Classement(commands.Cog):
         pari_id: int = commands.parameter(description="L'identifiant du pari à résoudre")
     ):
         """Déclenche la phase de résolution d'un pari spécifique."""
-        
-        # Récupération du pari par son ID unique
         pari = self.bot.bet_manager.get_bet_by_id(pari_id)
         
         if not pari:
@@ -226,7 +226,6 @@ class Classement(commands.Cog):
         if ctx.author.id != pari.lanceur_id and ctx.author.id != pari.adversaire_id:
             return await ctx.send("Tu n'es pas concerné par ce pari.")
 
-        # Déterminer qui est le vainqueur auto-proclamé et qui est le perdant
         vainqueur = ctx.author
         perdant_id = pari.adversaire_id if ctx.author.id == pari.lanceur_id else pari.lanceur_id
         perdant = ctx.guild.get_member(perdant_id)
@@ -250,36 +249,10 @@ class Classement(commands.Cog):
         self, 
         ctx, 
         id: int = commands.parameter(description="L'identifiant du pari à annuler")
-    ):
+        ):
         """annule un pari"""
         self.bot.bet_manager.remove_bet(id)
         await ctx.send("pari annulé")
-
-    @commands.command(name="streak")
-    async def streak(
-        self, 
-        ctx, 
-        user: discord.Member = commands.parameter(default=None, description="Le membre dont on veut voir la streak (laisser vide pour soi-même)")
-    ):
-        """affiche la streak de l'auteur ou du membre ciblé"""
-        if user == None:
-            await ctx.send(f"Vous avez joué {self.bot.streak_mgr.get_user_streak(ctx.author.id)} jours")
-        else:
-            await ctx.send(f"{user.nick} a joué {self.bot.streak_mgr.get_user_streak(user.id)} jours")
-
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        """Jeu des streaks"""
-        if message.channel.id == self.bot.config["STREAK_CHANNEL_ID"]:
-            streak_updated = self.bot.streak_mgr.trigger_streak(message.author.id)
-            if streak_updated:
-                current_streak = self.bot.streak_mgr.get_user_streak(message.author.id)
-                
-                for jours, pr in self.bot.config["STREAK_DAY_PR"]: 
-                    if current_streak == jours:
-                        await message.channel.send(f"Pour avoir joué {jours} jours, {message.author.mention} gagne {pr} pr!")
-                        await self.ajouter_pr(message.author, pr)
-                        break 
 
 async def setup(bot):
     await bot.add_cog(Classement(bot))

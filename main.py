@@ -29,5 +29,6 @@ class Hedebot(commands.Bot):
         await self.load_extension("cogs.des")
         await self.load_extension("cogs.reactionrole")
         await self.load_extension("cogs.honeypot")
+        await self.load_extension("cogs.streaks")
     
 Hedebot(config).run(config["TOKEN"]) # on lance le bot
