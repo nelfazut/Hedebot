@@ -84,17 +84,17 @@ class Streaks(commands.Cog):
         """Jeu des streaks"""
         if message.author.bot:
             return
-            
-        if message.channel.id == self.bot.config["STREAK_CHANNEL_ID"]:
+        channel_id = self.bot.config["STREAK_CHANNEL_ID"]
+        if message.channel.id == channel_id:
             streak_updated, freeze_gained = self.bot.streak_mgr.trigger_streak(message.author.id)
-            
+            await message.add_reaction(await message.guild.fetch_emoji(self.bot.config["STREAK_EMOJI_ID"]))
             if streak_updated:
                 current_streak = self.bot.streak_mgr.get_user_streak(message.author.id)
                 
                 # Si le joueur a gagné un gel de série aujourd'hui
                 if freeze_gained:
                     await self.default_channel.send(
-                        f"{message.author.mention} ! Tu viens d'atteindre {current_streak} jours de suite et tu gagnes un **Gel de série** !\n"
+                        f"{message.author.mention} ! Tu viens d'atteindre {current_streak} jours de suite dans {(await self.bot.fetch_channel(channel_id)).mention} et tu gagnes un **Gel de série** !\n"
                         f"Il sauvera automatiquement ta streak si tu oublies de jouer un jour."
                     )
                 
