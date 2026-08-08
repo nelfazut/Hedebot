@@ -85,6 +85,9 @@ class StreakMgr:
         user_data = data.get(str(user_id), [0, 0, 0, 0])
         if len(user_data) == 3: user_data.append(0)
         return user_data[3]
+    def played_today(self, user : int) -> bool:
+        data = self._get_streak_data()
+        return get_current_day() == data[str(user)][0]
 
     def best_streak(self):
         """renvoie l'id utilisateur associée a la meilleur streak ainsi que sa streak"""

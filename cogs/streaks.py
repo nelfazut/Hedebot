@@ -47,13 +47,14 @@ class Streaks(commands.Cog):
         cible = user if user else ctx.author
         streak_val = self.bot.streak_mgr.get_user_streak(cible.id)
         freezes = self.bot.streak_mgr.get_user_freezes(cible.id)
-        
+        played_today = self.bot.streak_mgr.played_today(cible.id)
         if user is None:
             msg = f"Vous avez joué {streak_val} jours de suite."
         else:
             nom = cible.nick if cible.nick else cible.display_name
             msg = f"{nom} a joué {streak_val} jours de suite."
-            
+        if not played_today:
+            msg += f"\nPas joué ajourd'hui."
         if freezes > 0:
             msg += f"\n**Gels de série disponibles :** {freezes}"
             
