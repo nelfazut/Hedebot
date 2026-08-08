@@ -13,7 +13,7 @@ class Des(commands.Cog):
         if message.content.startswith(self.bot.config["BOT_PREFIX"]):
             command = message.content.removeprefix(self.bot.config["BOT_PREFIX"])
             if command.split(maxsplit=1)[0] not in [command.name for command in self.bot.commands]:
-                await message.channel.send(f"```md\n{run_cmd(command, message.author.id)[:-1]}```")
+                await message.channel.send(f"```md\n{run_cmd(command, message.author.id)}```")
 
 async def setup(bot):
     await bot.add_cog(Des(bot=bot))
