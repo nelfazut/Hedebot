@@ -63,7 +63,7 @@ class reactionrole(commands.Cog):
         
         for emoji in emojis:
             await msg.add_reaction(emoji)
-
+        await ctx.message.add_reaction("👍")
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
         """Ajoute le rôle associé s'il existe quand on ajoute une réaction à un message"""
