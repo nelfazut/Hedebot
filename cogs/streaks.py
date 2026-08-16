@@ -1,7 +1,9 @@
 import discord
 from discord.ext import commands, tasks
 import datetime
+from zoneinfo import ZoneInfo  
 
+TZ_FRANCE = ZoneInfo("Europe/Paris")
 class Streaks(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -20,9 +22,9 @@ class Streaks(commands.Cog):
             return self.guild.get_channel(self.bot.config["DEFAULT_CHANNEL"])
         return None
 
-    @tasks.loop(time=[datetime.time(hour=h, minute=0, second=0) for h in range(18, 24)])
+    @tasks.loop(time=[datetime.time(hour=h, minute=0, second=0, tzinfo=TZ_FRANCE) for h in range(18, 24)])
     async def rappel_streak(self):
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(TZ_FRANCE)
         current_hour = now.hour
         
         users_to_ping = self.bot.streak_mgr.get_users_to_remind(current_hour)
