@@ -84,7 +84,7 @@ class reactionrole(commands.Cog):
                 if choosed_emoji == emojis[i]:
                     selected_role = roles[i]
                     role = guild.get_role(selected_role)
-                    
+
                     if role:
                         await payload.member.add_roles(role)
 
