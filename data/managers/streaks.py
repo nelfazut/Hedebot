@@ -48,7 +48,7 @@ class StreakMgr:
 
         # Vérification si on gagne un gel (au 50ème jour, puis tous les 20 jours)
         freeze_gained = False
-        if new_streak_value >= 50 and (new_streak_value - 50) % 20 == 0:
+        if new_streak_value > 0 and new_streak_value % 50 == 0:
             freezes += 1
             freeze_gained = True
 
