@@ -22,4 +22,4 @@ jobs:
           script: |
             cd /Hedebot
             git pull origin main
-            pm2 restart discord-bot
+            pm2 restart hedebot
