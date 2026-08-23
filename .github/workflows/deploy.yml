@@ -22,5 +22,4 @@ jobs:
           script: |
             cd /Hedebot
             git pull origin main
-            ./venv/bin/pip install -r requirements.txt
             pm2 restart discord-bot
