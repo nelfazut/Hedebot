@@ -37,7 +37,29 @@ class Utilitaires(commands.Cog):
         counts = Counter(str(m.author) for m in deleted_msgs)
         summary = '\n'.join([f"**{author}**: {count}" for author, count in counts.items()])
         await ctx.send(f"{len(deleted_msgs)} messages ont été supprimés\n\n{summary}", delete_after=2.0)
-    
+    def test_regex(self, smhj : str):
+        matches = re.findall(r'(\d+(?:\.\d+)?)([smhj])', smhj.lower())
+        if not matches:
+            return "Format de temps invalide. Utilisez `s`, `m`, `h`, `j` **sans espaces** (ex: `ht!rappel 1h30m prendre la bastille`)."
+
+        total_secondes = 0
+        multiplicateurs = {'s': 1, 'm': 60, 'h': 3600, 'j': 86400}
+
+        for valeur, unite in matches:
+            total_secondes += float(valeur) * multiplicateurs[unite]
+            
+        if total_secondes <= 0:
+            return "Le temps doit être supérieur à 0."
+        return ""
+    async def attente_smhj(self, smhj : str):
+        matches = re.findall(r'(\d+(?:\.\d+)?)([smhj])', smhj.lower())
+        total_secondes = 0
+        multiplicateurs = {'s': 1, 'm': 60, 'h': 3600, 'j': 86400}
+
+        for valeur, unite in matches:
+            total_secondes += float(valeur) * multiplicateurs[unite]
+
+        await asyncio.sleep(total_secondes)
     @commands.command(name="rappel")
     async def remind(
         self, 
@@ -47,27 +69,30 @@ class Utilitaires(commands.Cog):
         message: str = commands.parameter(description="Le texte du rappel à envoyer")
     ):
         """Crée un rappel personnalisé après un certain temps"""
-        matches = re.findall(r'(\d+(?:\.\d+)?)([smhj])', temps.lower())
-        if not matches:
-            await ctx.send("Format de temps invalide. Utilisez `s`, `m`, `h`, `j` **sans espaces** (ex: `ht!rappel 1h30m prendre la bastille`).")
-            return    
-
-        total_secondes = 0
-        multiplicateurs = {'s': 1, 'm': 60, 'h': 3600, 'j': 86400}
-
-        for valeur, unite in matches:
-            total_secondes += float(valeur) * multiplicateurs[unite]
-            
-        if total_secondes <= 0:
-            await ctx.send("Le temps doit être supérieur à 0.")
-            return
-
-        await ctx.send(f'Quête acceptée !')
-        
-        await asyncio.sleep(total_secondes)
-        
+        error = self.test_regex(message)
+        if error:
+            return await ctx.send(error)
+        await ctx.send("Quête acceptée")
+        await attente_smhj(self, message)
         await ctx.send(f"{message} {ctx.author.mention}")
-        
+                
+    @commands.command(name="rapppel")
+    async def rapppel(
+        self, 
+        ctx, 
+        occurences: int = commands.parameter(description="Le nombre de fois a répéter le rappel"),
+        temps: str = commands.parameter(description="Le délai (ex: 1h30m, 2j, 45s) sans espaces"), 
+        *, 
+        message: str = commands.parameter(description="Le texte du rappel à envoyer")):
+        error = self.test_regex(temps)
+        if error:
+            return await ctx.send(error)
+        await ctx.send("Quête acceptée")
+
+        for i in range(occurences):
+            await self.attente_smhj(temps)
+            await ctx.send(f"{message} {ctx.author.mention}")
+
     @remind.error
     async def remind_error(self, ctx, error):
         if isinstance(error, commands.MissingRequiredArgument):
